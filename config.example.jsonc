@@ -7,5 +7,8 @@
   // Extra priority per second a blocked agent has been waiting, capped.
   "waitBonusPerSec": 1,
   "maxWaitBonus": 600,
+  // Extra priority per second a done agent sits unreviewed (kept below blocked).
+  "doneBonusPerSec": 0.5,
+  "maxDoneBonus": 100,
   "pollIntervalMs": 1500
 }
