@@ -1,0 +1,11 @@
+// Copy to config.json in this plugin's config dir (all fields optional).
+//   herdr plugin config-dir triage
+// (standalone: ~/.config/herdr-triage/config.json). config.json is gitignored.
+{
+  // Base priority per status — higher sorts nearer the top.
+  "weights": { "blocked": 1000, "done": 500, "working": 100, "idle": 10, "default": 50 },
+  // Extra priority per second a blocked agent has been waiting, capped.
+  "waitBonusPerSec": 1,
+  "maxWaitBonus": 600,
+  "pollIntervalMs": 1500
+}

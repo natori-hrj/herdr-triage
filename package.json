@@ -1,0 +1,20 @@
+{
+  "name": "herdr-triage",
+  "version": "0.1.0",
+  "description": "Attention triage for herdr — ranks your agents by who needs you most, so a blocked agent waiting 10 minutes rises to the top.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/index.js"
+  },
+  "keywords": ["herdr", "herdr-plugin", "triage", "attention", "ai-agents"],
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0",
+    "vitest": "^2.1.0"
+  }
+}
