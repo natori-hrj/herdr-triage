@@ -34,8 +34,12 @@ export function score(status: AgentStatus, inStatusMs: number, cfg: Config): num
             : cfg.weights.default;
 
   if (status === "blocked") {
-    const bonus = Math.min(cfg.maxWaitBonus, (inStatusMs / 1000) * cfg.waitBonusPerSec);
-    return base + bonus;
+    return base + Math.min(cfg.maxWaitBonus, (inStatusMs / 1000) * cfg.waitBonusPerSec);
+  }
+  if (status === "done") {
+    // A done agent that's sat unreviewed nudges up so it isn't buried under
+    // fresh done agents — capped so it never overtakes a blocked agent.
+    return base + Math.min(cfg.maxDoneBonus, (inStatusMs / 1000) * cfg.doneBonusPerSec);
   }
   return base;
 }

@@ -9,6 +9,10 @@ export interface Config {
   waitBonusPerSec: number;
   /** Cap on the wait bonus so one very old block doesn't dominate forever. */
   maxWaitBonus: number;
+  /** Extra priority per second a done agent sits unreviewed. */
+  doneBonusPerSec: number;
+  /** Cap on the done bonus. Keep it below (blocked − done) so blocked stays on top. */
+  maxDoneBonus: number;
   /** How often to refresh, in milliseconds. */
   pollIntervalMs: number;
 }
@@ -17,6 +21,8 @@ export const DEFAULTS: Config = {
   weights: { blocked: 1000, done: 500, working: 100, idle: 10, default: 50 },
   waitBonusPerSec: 1,
   maxWaitBonus: 600, // 10 minutes' worth
+  doneBonusPerSec: 0.5,
+  maxDoneBonus: 100, // done tops out at 600, still below the blocked base of 1000
   pollIntervalMs: 1500,
 };
 

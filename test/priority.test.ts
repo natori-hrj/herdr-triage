@@ -33,8 +33,18 @@ describe("score", () => {
     expect(huge).toBe(DEFAULTS.weights.blocked + DEFAULTS.maxWaitBonus);
   });
 
-  it("does not apply a wait bonus to non-blocked statuses", () => {
-    expect(score("done", 10 ** 9, DEFAULTS)).toBe(DEFAULTS.weights.done);
+  it("does not apply a time bonus to working or idle", () => {
+    expect(score("working", 10 ** 9, DEFAULTS)).toBe(DEFAULTS.weights.working);
+    expect(score("idle", 10 ** 9, DEFAULTS)).toBe(DEFAULTS.weights.idle);
+  });
+
+  it("raises a done agent's score the longer it sits, capped", () => {
+    expect(score("done", 60_000, DEFAULTS)).toBeGreaterThan(score("done", 0, DEFAULTS));
+    expect(score("done", 10 ** 12, DEFAULTS)).toBe(DEFAULTS.weights.done + DEFAULTS.maxDoneBonus);
+  });
+
+  it("keeps a maxed-out done agent below a just-blocked agent", () => {
+    expect(score("done", 10 ** 12, DEFAULTS)).toBeLessThan(score("blocked", 0, DEFAULTS));
   });
 
   it("uses the default weight for unknown statuses", () => {
