@@ -1,15 +1,23 @@
 id = "triage"
 name = "Herdr Triage"
-version = "0.2.0"
+version = "0.2.1"
 min_herdr_version = "0.7.0"
 description = "Ranks your agents by who needs you most — a blocked agent waiting 10 minutes rises to the top, so you always know who to deal with first."
 platforms = ["linux", "macos"]
 
+# herdr runs this after `plugin install`, before registering the plugin. It must NOT be a
+# bare `cargo build`: herdr spawns build commands with a minimal PATH that excludes
+# ~/.cargo/bin, so that fails even on machines with a working Rust toolchain. The script
+# finds cargo, and prefers a checksum-verified prebuilt binary so installing needs no
+# toolchain at all. Either path produces target/release/herdr-triage.
 [[build]]
-command = ["cargo", "build", "--release"]
+command = ["/bin/sh", "scripts/fetch-or-build.sh"]
 
 # A live, self-refreshing triage list of agents in attention-priority order.
 # Open with: herdr plugin pane open triage/list
+#
+# NOTE: the leading `./` is required — herdr resolves a pane's command through PATH, so the
+# bare form fails with "No viable candidates found in PATH" despite the cwd being right.
 [[panes]]
 id = "list"
 title = "Triage"

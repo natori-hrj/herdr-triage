@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      # `--component` takes one value; a bare second name is parsed as a toolchain.
+      - run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test --locked
+
+  # The declared MSRV is a promise; check it rather than letting it rot.
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - shell: bash
+        run: |
+          set -euo pipefail
+          msrv=$(sed -n 's/^rust-version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -1)
+          rustup toolchain install "$msrv" --profile minimal
+          cargo "+$msrv" test --locked
+
+  # The install path herdr actually takes. A bare `cargo build` in the manifest works on a
+  # developer's machine and fails under herdr's minimal PATH, so prove the script both finds
+  # cargo without ~/.cargo/bin on PATH and falls back cleanly when a download is impossible.
+  install-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - run: rustup toolchain install stable --profile minimal
+      - name: Build under herdr's PATH, with downloads pointed at nothing
+        run: |
+          set -euo pipefail
+          env -u CARGO_HOME \
+            PATH="/usr/gnu/bin:/usr/local/bin:/bin:/usr/bin:." \
+            HERDR_TRIAGE_RELEASE_BASE="https://example.invalid/no-such-release" \
+            /bin/sh scripts/fetch-or-build.sh
+          test -x target/release/herdr-triage

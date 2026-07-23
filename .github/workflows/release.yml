@@ -1,0 +1,147 @@
+name: release
+
+# Publishes the prebuilt binaries that scripts/fetch-or-build.sh looks for, so installing
+# the plugin does not require a Rust toolchain. Asset names must stay in sync with that
+# script: herdr-triage-<version>-<fingerprint>-<triple>.tar.gz, each with a .sha256 beside it.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# Actions are pinned to commit SHAs, not tags: a tag is mutable, and these jobs run with
+# `contents: write` to publish binaries that users download and execute. A compromised
+# upstream tag would be a direct path into other people's machines.
+permissions:
+  contents: write
+
+jobs:
+  # The release is created exactly once, before anything uploads to it. Letting each matrix
+  # job create-or-update it is a race: one wins, the rest fail with `already_exists`, and the
+  # release ends up missing whichever platform lost — which looks successful while quietly
+  # shipping an incomplete set.
+  create-release:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or repair the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # An existing release may be a leftover DRAFT from a failed run. Draft assets are
+            # served from `…/download/untagged-<hash>/…` and are unreachable by tag, so the
+            # install script 404s and everyone silently compiles — a release that looks
+            # complete but is not. Publish it rather than uploading into the same trap.
+            draft=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+                      --json isDraft -q .isDraft)
+            if [ "$draft" = "true" ]; then
+              echo "release $GITHUB_REF_NAME exists as a draft — publishing it"
+              gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
+            else
+              echo "release $GITHUB_REF_NAME already exists"
+            fi
+          else
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+              --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
+          fi
+
+  build:
+    needs: [create-release]
+    # `always()` so a non-tag run, where create-release is skipped, still builds.
+    if: always() && needs.create-release.result != 'failure'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            native: true
+          # macos-latest is arm64, so this one is cross-compiled; running its test binaries
+          # would depend on Rosetta, which is not guaranteed on the runner. Build only —
+          # ci.yml already runs the suite natively on both platforms.
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            native: false
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            native: true
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+            native: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add ${{ matrix.target }}
+
+      - if: matrix.native
+        run: cargo test --locked --target ${{ matrix.target }}
+
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Package
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Take the version from the manifest, which is what the install script reads.
+          version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' herdr-plugin.toml | head -1)
+
+          # Same script the install path uses, so the names cannot drift apart.
+          fingerprint=$(sh scripts/build-fingerprint.sh)
+          asset="herdr-triage-${version}-${fingerprint}-${{ matrix.target }}.tar.gz"
+          echo "fingerprint: $fingerprint"
+
+          # A tag must not disagree with the manifest, or the install script will look for
+          # an asset that was never published.
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match manifest version ${version}" >&2
+            exit 1
+          fi
+
+          staging=$(mktemp -d)
+          cp "target/${{ matrix.target }}/release/herdr-triage" "$staging/"
+          tar -czf "$asset" -C "$staging" herdr-triage
+          # shasum is present on GitHub's macOS and Ubuntu images, but prefer sha256sum
+          # where it exists so this keeps working on a leaner container.
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$asset" | cut -d' ' -f1 > "$asset.sha256"
+          else
+            shasum -a 256 "$asset" | cut -d' ' -f1 > "$asset.sha256"
+          fi
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+
+      # Upload with gh rather than a third-party action: the release already exists, so this
+      # is a plain upload, and it removes an action from the supply chain of a job that
+      # publishes executables. `--clobber` makes a re-run idempotent.
+      - name: Upload
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET: ${{ steps.package.outputs.asset }}
+        run: |
+          set -euo pipefail
+          gh release upload "$GITHUB_REF_NAME" "$ASSET" "$ASSET.sha256" \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+      # Prove the asset is reachable at the URL the install script will actually construct.
+      # Uploading successfully is not the same as being downloadable: a draft release accepts
+      # uploads and then serves them from a URL that has nothing to do with the tag.
+      - name: Verify the published URL
+        if: github.ref_type == 'tag'
+        env:
+          ASSET: ${{ steps.package.outputs.asset }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/$ASSET"
+          code=$(curl -fsL -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 3 "$url" || true)
+          if [ "$code" != "200" ]; then
+            echo "::error::$url is not downloadable (HTTP $code)"
+            exit 1
+          fi
+          echo "verified $url"
