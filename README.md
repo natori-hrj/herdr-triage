@@ -34,18 +34,20 @@ commands and mutates nothing — no repos, no panes, no agents.
 ## Install (as a herdr plugin)
 
 ```bash
-herdr plugin install <owner>/herdr-triage
+herdr plugin install natori-hrj/herdr-triage
 herdr plugin pane open triage/list
 ```
 
 ## Develop
 
 ```bash
-npm install
-npm test          # unit tests (vitest), deterministic via an injected clock
-npm run typecheck
-npm run build
+cargo test              # unit tests, deterministic via an injected clock
+cargo build --release   # what the plugin's build step runs
 ```
+
+Rust 1.78 or newer, and **no dependencies** — Triage reads one socket, parses one
+known JSON shape, sorts a list and prints it, all of which std does. See
+`src/json.rs` for the hand-rolled reader and why it exists.
 
 ## Status
 

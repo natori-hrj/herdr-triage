@@ -1,6 +1,4 @@
-node_modules/
-dist/
-coverage/
+target/
 config.json
 *.log
 .DS_Store
