@@ -1,6 +1,6 @@
 [package]
 name = "herdr-triage"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 rust-version = "1.78"
 description = "Attention triage for herdr — ranks your agents by who needs you most, so a blocked agent waiting 10 minutes rises to the top"

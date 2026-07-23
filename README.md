@@ -38,6 +38,10 @@ herdr plugin install natori-hrj/herdr-triage
 herdr plugin pane open triage/list
 ```
 
+Installing does not require a Rust toolchain: the build step fetches a
+checksum-verified prebuilt binary for your platform, and compiles from source
+only when that isn't possible (`scripts/fetch-or-build.sh`).
+
 ## Develop
 
 ```bash
