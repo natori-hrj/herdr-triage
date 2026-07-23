@@ -1,14 +1,12 @@
 id = "triage"
 name = "Herdr Triage"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.7.0"
 description = "Ranks your agents by who needs you most — a blocked agent waiting 10 minutes rises to the top, so you always know who to deal with first."
 platforms = ["linux", "macos"]
 
 [[build]]
-command = ["npm", "ci"]
-[[build]]
-command = ["npm", "run", "build"]
+command = ["cargo", "build", "--release"]
 
 # A live, self-refreshing triage list of agents in attention-priority order.
 # Open with: herdr plugin pane open triage/list
@@ -16,4 +14,4 @@ command = ["npm", "run", "build"]
 id = "list"
 title = "Triage"
 placement = "split"
-command = ["node", "dist/index.js"]
+command = ["./target/release/herdr-triage"]

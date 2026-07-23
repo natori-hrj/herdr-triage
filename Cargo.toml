@@ -1,0 +1,26 @@
+[package]
+name = "herdr-triage"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.78"
+description = "Attention triage for herdr — ranks your agents by who needs you most, so a blocked agent waiting 10 minutes rises to the top"
+license = "Apache-2.0"
+repository = "https://github.com/natori-hrj/herdr-triage"
+homepage = "https://github.com/natori-hrj/herdr-triage"
+readme = "README.md"
+keywords = ["herdr", "herdr-plugin", "triage", "attention", "ai-agents"]
+categories = ["command-line-utilities", "development-tools"]
+
+[profile.release]
+strip = true
+lto = "thin"
+
+[[bin]]
+name = "herdr-triage"
+path = "src/main.rs"
+
+# No dependencies, on purpose. Triage reads one socket, parses one JSON shape, sorts a list
+# and prints it — std does all of that. serde_json alone would be ~15 crates for a payload
+# whose shape we already know; see `json` for the hand-rolled reader (shared in spirit with
+# herdr-lazy, which takes the same line).
+[dependencies]
